@@ -20,7 +20,7 @@ Term: Fall 2019
 
 ### [Project Report](http://www.columbia.edu/~hl3099/proj1_report.html)
 
-### [Project Code](doc/proj1_report.Rmd)
+### [Project Code](doc/Proj1_report.Rmd)
 
 Following [suggestions](http://nicercode.github.io/blog/2013-04-05-projects/) by [RICH FITZJOHN](http://nicercode.github.io/about/#Team) (@richfitz). This folder is orgarnized as follows.
 
