@@ -1,0 +1,225 @@
+---
+title: "Why Rock Dies In 2010s?"
+output: 
+  html_document:
+    code_folding: hide
+    toc: yes
+    theme: united
+bibliography: references.bib
+link-citations: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+![](/Users/changqu/Documents/Github/fall2019-proj1--courtneyqu/figs/beatles.jpg)
+
+
+\newline
+\newline
+\newline
+
+
+
+As millenials, although we certainly did not experience the heat brought by "The Beatles" and "Elvis Presley", these names are far more than familiar to us. However as we entered 2010s, rock music seems to become less and less prevalant in our life. How did this happened and why? Let's figure it out.
+
+\newline
+\newline
+\newline
+
+```{r, message=FALSE, warning=FALSE}
+# loading required packages
+library(tidyverse)
+library(tidytext)
+library(tm)
+library(DT)
+library(scales)
+library(wordcloud)
+library(plotrix)
+library(beeswarm)
+library(GGally)
+library(plotly)
+library(shiny)
+library(textdata)
+```
+
+```{r}
+# loading data
+load('../output/processed_lyrics.RData')
+```
+
+# Outdated Social Values of Metal Music 
+
+As a sub-division of Rock music, Metal music was originated in 1970s largely due to the consistent tension from cold war. People are looking for more extreme ways to fight against pressure from uniformness[@samvideo].
+
+```{r}
+# create a corpus with all metal and rock music
+all_metal <- dt_lyrics %>% filter(genre=="Metal") %>%
+  select(stemmedwords) %>%
+  paste(., collapse = "")
+
+all_rock <- dt_lyrics %>% filter(genre=="Rock") %>%
+  select(stemmedwords) %>%
+  paste(., collapse = "")
+
+all_metal_rock <- c(all_metal, all_rock)
+
+metal_rock_corpus <- VCorpus(VectorSource(all_metal_rock))
+metal_rock_tdm <-as.matrix(TermDocumentMatrix(metal_rock_corpus))
+colnames(metal_rock_tdm) <- c('Metal',"Rock")
+
+# create a dataframe with all metal and rock music
+metal_rock_df <- data.frame(metal_rock_tdm) %>% 
+  rownames_to_column(var="words")
+
+# find out the total number words in rock and metal respectivly
+#sum(metal_rock_df$Metal) # 822771
+#sum(metal_rock_df$Rock) # 4019428
+
+# find out the common words in metal and rock 
+common_words_prc <- metal_rock_df %>% 
+  filter(Metal !=0 & Rock !=0) %>%
+  mutate(Metal_prc = Metal/822771,
+         Rock_prc = Rock / 4019428) %>%
+  mutate(diff = abs(Metal_prc-Rock_prc)) %>%
+  arrange(desc(diff)) 
+
+# select top 25 words 
+top_25_prc <- top_n(common_words_prc, 25, diff)
+pyramid.plot(top_25_prc$Metal_prc, top_25_prc$Rock_prc,
+             labels = top_25_prc$words,
+             main="Words in Common",
+             gap=0.01,
+             laxlab = NULL,
+             raxlab = NULL,
+             unit = NULL,
+             xlim = c(0.02,0.1),
+             top.labels = c("Metal","Words","Rock"))
+
+```
+
+After examine the relative frequency of each word in both Metal and Rock music, we see that, although originated from Rock music, there are a lot more heavy and extreme topics, such as "death" and "die" in Metal music. 
+
+Moreover, we see that word "shes" and "girl" appear far less frequent in Metal music than Rock. This is because Metal music is male dominant and express misogynist[@andrew2010]. However, along with the social movements, such as **Feminism** and **Civil Rights Movements**, female and black artist started entering the stage. And people were largly criticizing the misogynism expressed in Metal music, which creates bad influence to Rock music in later decades.
+
+# Technology Changes The Music Industry
+
+```{r}
+
+dt_lyrics <- dt_lyrics %>% 
+  mutate(decades = case_when(year >= 1970 & year < 1980 ~ "1970s",
+                             year >= 1980 & year < 1990 ~ "1980s",
+                             year >= 1990 & year < 2000 ~ "1990s",
+                             year >= 2000 & year < 2010 ~ "2000s",
+                             year >= 2010 & year < 2020 ~ "2010s"))
+
+song_num_cross_time <- dt_lyrics %>%
+  count(genre, year) %>%
+  filter(year >= 1970) %>%
+  group_by(year) %>%
+  summarise(n_total=sum(n))
+
+dt_lyrics %>%
+  filter(year >= 1970) %>%
+  count(genre, year) %>%
+  inner_join(song_num_cross_time, by="year") %>%
+  mutate(n_prc = n/n_total) %>%
+  ggplot(aes(x=year, y=n_prc, fill=genre)) +
+  geom_area() +
+  xlab("") +
+  ylab("Scaled Song's Count") +
+  ggtitle("How Does Genre Change Across Time?",
+          subtitle = "In Mid 2000s, Pop and Hip Pop Starts to Rise") +
+  theme(plot.title = element_text(face = "bold")) +
+  theme(plot.subtitle = element_text(face = "bold", color = "grey35")) +
+  geom_text(x=3,y=2.7, label="Rock", color="grey35", alpha = 0.2)+
+  geom_text(x=3,y=0.5, label="Pop", color="grey35", alpha = 0.2) +
+  geom_text(x=5,y=0.3, label=paste("Hip Hop", ""), color="grey35", alpha = 0.2)
+
+```
+
+We see that after peaking in 2000s, Rock started to die out. Instead, Pop and Hip-Hop started to catch up since. This is largly due to the development of technology. More and more artist abandoned the traditional band production process. Instead, they started to use technology to synchronyzing sounds to produce music, which is largly used by Pop and Hip Hop artists[@christopher2018].
+
+As technology makes furthur advancements in 2010s, which lowers the bar of being a producer and singer, more people join the army of Pop or Hip Hop instead of Rock music, which requires significant music talent to perfome and produce.
+
+# Prevailing Terrorism
+
+```{r}
+# use NRC Lexicon to perform sentiment analysis
+lyric_emotion <- dt_lyrics %>%
+  unnest_tokens(word, stemmedwords) %>%
+  inner_join(get_sentiments("nrc"), by="word")
+
+lyric_emotion %>% 
+  count(decades,sentiment) %>%
+  drop_na(decades) %>%
+  filter(sentiment  %in% c("anger","fear","joy","sadness","trust")) %>%
+  group_by(decades) %>%
+  mutate(n_prc = n/sum(n)) %>%
+  select(-n) %>%
+  spread(key=decades, value = n_prc) %>%
+  ggparcoord(columns = 2:6, groupColumn = 1) +
+  xlab("") +
+  ylab("Scaled Emotion's Count") +
+  ggtitle("How Emotions in Songs Changed Across Decades?",
+          subtitle = "Seems Like 2000s is a Changing Decade") +
+  theme(plot.title = element_text(face = "bold")) +
+  theme(plot.subtitle = element_text(face = "bold", color = "grey35"))
+  
+```
+
+Starting early 2000s, **Terrorism** started to prevail the world, which was reflected in the sentiment analysis above. We see an immediate increase of **anger**, **sadness**, and **fear** in 2000s. At the same time, positive emotions, such as **joy** and **trust** decreased in 2000s.
+
+```{r, warning=FALSE}
+# create a corpus with rock, pop, and hip hop music
+all_pop <- dt_lyrics %>% filter(genre=="Pop") %>%
+  select(stemmedwords) %>%
+  paste(., collapse = "")
+
+all_hiphop <- dt_lyrics %>% filter(genre=="Hip-Hop") %>%
+  select(stemmedwords) %>%
+  paste(., collapse = "")
+
+all_rock_pop_hiphop <- c(all_rock, all_pop, all_hiphop)
+
+rock_pop_hiphop_corpus <- VCorpus(VectorSource(all_rock_pop_hiphop))
+rock_pop_hiphop_corpus <- tm_map(rock_pop_hiphop_corpus, removeWords, c("niggas"))
+rock_pop_hiphop_tdm <-as.matrix(TermDocumentMatrix(rock_pop_hiphop_corpus))
+colnames(rock_pop_hiphop_tdm) <- c("Rock","Pop", "Hip-Hop")
+
+# comparison cloud
+comparison.cloud(rock_pop_hiphop_tdm, max.words = 200, colors = brewer.pal(3, "Set1"),
+                 random.order = FALSE,
+                 title.size = 1.5,
+                 match.colors = TRUE)
+```
+
+*Note*: because there is word "love" in every genre, I removed it as stop words in the starter code.
+
+Comparing three music genres, we see that there are a lot of bad languages in Hip Hop songs, which is viewed as a more extraverted way of expression compare to Rock[@becky2015]. When facing the Terrorist, people prefer a more direct way to express their anger towards Terrorist. Therefore, Hip Hop gradually takes over large portion of market.
+
+Moroever, as Terrorism is getting more and more serious in 2010s. People are tired of heavy topics of Rock music. Musics like Pop where has a lot of light-hearted topics, such as "baby", "love", and etc make people more relax. Therefore, we see a slight bounce back of joy in 2010s due to increasing popularity of Pop music.
+
+# Summary
+
+By analyzing the lyric data of songs from 1970s to 2010s, we indentified the reason why Rock music dies out in 2010s:
+
++ As a subdivision of Rock, Metal's inappropriate cultures, such as misogynist creates bad influence to Rock
++ Technology development changes the way music produce in 2010s
++ Prevailing Terrorism creates social needs for Pop and Hip Pop music to take place of Rock
+
+
+# Reference
+
+
+
+
+
+
+
+
+
+
+
+
