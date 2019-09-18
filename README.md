@@ -5,7 +5,6 @@
 <img src="figs/beatles.jpg" width="500">
 
 ### [Project Description](doc/)
-This is the first and only *individual* (as opposed to *team*) this semester. 
 
 Term: Fall 2019
 
